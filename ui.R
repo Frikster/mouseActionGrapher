@@ -1,6 +1,6 @@
 rm(list = ls())
 # Immediately enter the browser/some function when an error occurs
-#options(error = some funcion)
+# options(error = some funcion)
 
 library(shiny)
 library(DT)
@@ -35,15 +35,15 @@ shinyUI(fluidPage(
       
     
     mainPanel(
-      sliderInput(inputId = "opt.cex",
-                  label = "Point Size (cex)",                            
-                  min = 0, max = 2, step = 0.25, value = 1),
-      sliderInput(inputId = "opt.cexaxis",
-                  label = "Axis Text Size (cex.axis)",                            
-                  min = 0, max = 2, step = 0.25, value = 1), 
-               plotOutput("plot1"),
-               DT::dataTableOutput("plotTable"),
-               downloadButton('downloadSubset', 'Download Subset (coming soon)')
+#       sliderInput(inputId = "opt.cex",
+#                   label = "Point Size (cex)",                            
+#                   min = 0, max = 2, step = 0.25, value = 1),
+#       sliderInput(inputId = "opt.cexaxis",
+#                   label = "Axis Text Size (cex.axis)",                            
+#                   min = 0, max = 2, step = 0.25, value = 1), 
+#                plotOutput("plot1"),
+#                DT::dataTableOutput("plotTable"),
+#                downloadButton('downloadSubset', 'Download Subset (coming soon)')
     )
     )
   )

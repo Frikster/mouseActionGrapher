@@ -39,7 +39,7 @@ actFreqs<-reactive({
 })
   
 output$plot1<-renderPlot({
-  if(input$updatePreds>0){
+  if(input$go>0){
     isolate({
       if(!is.null(inFile())&&input$tagChooser!="data not loaded"){
         # Subset and select only particular tags
@@ -106,6 +106,8 @@ output$plot1<-renderPlot({
   })
  }
   }) 
+
+
 
   
   
