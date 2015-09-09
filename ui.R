@@ -25,25 +25,26 @@ shinyUI(fluidPage(
                        'Double Quote'='"',
                        'Single Quote'="'"),
                      '"'),
-        selectizeInput('tagChooser', 'Choose Tags to plot', choices = c("data not loaded"), multiple = TRUE),
-        selectizeInput('actionsTracked', 'Choose Actions to plot', choices = c("data not loaded"), multiple = TRUE),
-        textInput("control_rate",
-                  "Rate in seconds",
-                  value = 3600),
+        #selectizeInput('tagChooser', 'Choose Tags to plot', choices = c("data not loaded"), multiple = TRUE),
+        textInput("binning", "Binning in seconds",value = 86400),
         actionButton("go", "Plot")
       ),
       
     
     mainPanel(
-      sliderInput(inputId = "opt.cex",
-                  label = "Point Size (cex)",                            
-                  min = 0, max = 2, step = 0.25, value = 1),
-      sliderInput(inputId = "opt.cexaxis",
-                  label = "Axis Text Size (cex.axis)",                            
-                  min = 0, max = 2, step = 0.25, value = 1), 
-               plotOutput("plot1"),
-               DT::dataTableOutput("plotTable"),
-               downloadButton('downloadSubset', 'Download Subset (coming soon)')
+      tabsetPanel(
+        id = 'tab',
+        tabPanel('Subsetting',       
+                 hr(),
+                 DT::dataTableOutput("subsettingTable"),
+                 downloadButton('downloadSubset', 'Download Subset'),
+                 actionButton("setSubsetToURP", "Use filtered subset (not yet available. Instead download the subset you want, rename it to whatever you want and upload it and then go to the URP tab)")
+        ),   
+        tabPanel('Histrogram', 
+                 plotOutput("plotHist", inline = TRUE,width='auto',height='auto')),
+        tabPanel('Line',
+                 plotOutput("plotLine", inline = TRUE,width='auto',height='auto'))
+      )
     )
     )
   )
