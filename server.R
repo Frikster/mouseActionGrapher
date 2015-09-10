@@ -20,29 +20,53 @@ shinyServer(function(input, output, clientData, session) {
       return(NULL)
     }
     else{
-      inF<-read.csv(input$file1$datapath, header=input$header, sep=input$sep, quote=input$quote)#[,c(colnames(datSubset)[1],"node",input$colDisplay)]
+      inF<-read.csv(input$file1$datapath, header=input$header, sep=input$sep, quote=input$quote) 
       inF
     }
   })
   
+  # Subset between start and end with bin column
   subsetTable<-reactive({
-    #browser()
-    if(is.null(input$colDisplay)){
-      # browser()
-      # inFile()[,c(colnames(inFile())[1],colnames(inFile())[2])]
-    }
-    else{ 
-      if(input$updateColsDisplay>0)
-      {
-        #  browser()
-        #  inFile()[,c(colnames(inFile())[1],input$colDisplay)]
-        isolate({
-          outSubTable<-inFile()[,input$colDisplay,drop=FALSE]
-          outSubTable
-        })
+    convertedDates<-strptime(as.character(inFile()[,DATE_COL]),"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+    browser()
+    inF<-inFile()[convertedDates>input$abs_start&&convertedDates<input$abs_end]
+    
+    bins<-seq(input$abs_start,input$abs_end,by=input$binning)
+    bin_no<-length(bins)
+    
+    bin_nos<-c(NULL)
+    bin_starts<-c(NULL)
+    for(i in 1:length(inF)){
+      for(j in 1:length(convertedDates)){
+        # Check if at right bin
+        if(bins[j]<inF[,COL_NUM][i]<bins[j+1]){
+          bin_nos[i] <- j
+          bin_starts[i] <- bins[j]
+        }
       }
+      browser()
+      cbind(inF,bin_starts,bin_nos)      
     }
+    })
+    
+   #  
+
+    
+    
+    
+  
+  
+  # Returns the added bin column
+  binReact<-reactive({
+
+    
+    
+    
+    
+    
   })
+  
+
   
 theChosenDates<-reactive({
   # Convert to dates dates

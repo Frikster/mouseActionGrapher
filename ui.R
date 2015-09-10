@@ -25,7 +25,9 @@ shinyUI(fluidPage(
                        'Double Quote'='"',
                        'Single Quote'="'"),
                      '"'),
-        #selectizeInput('tagChooser', 'Choose Tags to plot', choices = c("data not loaded"), multiple = TRUE),
+        selectizeInput('tagChooser', 'Choose Tags to plot', choices = c("data not loaded"), multiple = TRUE),
+        textInput("abs_start","Insert start date and time. Format: %Y-%m-%d %H:%M:%S",value=""),
+        textInput("abs_end","Insert end date and time. Format: %Y-%m-%d %H:%M:%S",value=""),
         textInput("binning", "Binning in seconds",value = 86400),
         actionButton("go", "Plot")
       ),
