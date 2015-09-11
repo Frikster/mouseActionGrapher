@@ -26,10 +26,10 @@ shinyUI(fluidPage(
                        'Single Quote'="'"),
                      '"'),
         selectizeInput('tagChooser', 'Choose Tags to plot', choices = c("data not loaded"), multiple = TRUE),
-        textInput("abs_start","Insert start date and time. Format: %Y-%m-%d %H:%M:%S",value=""),
-        textInput("abs_end","Insert end date and time. Format: %Y-%m-%d %H:%M:%S",value=""),
+        textInput("abs_start","Insert start date and time. Format: %Y-%m-%d %H:%M:%S",value="2015-06-25 01:00:00"),
+        textInput("abs_end","Insert end date and time. Format: %Y-%m-%d %H:%M:%S",value="2015-06-30 01:00:00"),
         textInput("binning", "Binning in seconds",value = 86400),
-        actionButton("go", "Plot")
+        actionButton("goButton", "Plot")
       ),
       
     
@@ -43,7 +43,7 @@ shinyUI(fluidPage(
                  actionButton("setSubsetToURP", "Use filtered subset (not yet available. Instead download the subset you want, rename it to whatever you want and upload it and then go to the URP tab)")
         ),   
         tabPanel('Histrogram', 
-                 plotOutput("plotHist", inline = TRUE,width='auto',height='auto')),
+                 plotOutput("plotHist")),
         tabPanel('Line',
                  plotOutput("plotLine", inline = TRUE,width='auto',height='auto'))
       )

@@ -12,6 +12,8 @@ TIME_COL <- 2
 DATE_COL <- 3
 ACTION_COL <- 4
 
+HEADFIX_STR <- 'reward0'
+
 shinyServer(function(input, output, clientData, session) {
   
   inFile<-reactive({
@@ -25,90 +27,134 @@ shinyServer(function(input, output, clientData, session) {
     }
   })
   
-  # Subset between start and end with bin column
+    observe({ 
+      if(!is.null(inFile)){
+        updateSelectizeInput(session, "tagChooser",
+                             'Choose Tags to plot',
+                             choices = unique(inFile()[[TAG_COL]]))
+      }
+    })
+  
+  # Subset between start and end with bin column and selected mice
   subsetTable<-reactive({
-    convertedDates<-strptime(as.character(inFile()[,DATE_COL]),"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
-    browser()
-    inF<-inFile()[convertedDates>input$abs_start&&convertedDates<input$abs_end]
+    subsetMice<-inFile()[inFile()[,TAG_COL]%in%input$tagChooser,]
     
-    bins<-seq(input$abs_start,input$abs_end,by=input$binning)
+    abs_start <- strptime(input$abs_start,"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+    abs_end <- strptime(input$abs_end,"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+    
+    if(is.null(subsetMice)||nrow(subsetMice)<=0){
+      return()
+    }
+    
+    # subset between abs_start and abs_end 
+    convertedDates<-strptime(as.character(subsetMice[,DATE_COL]),"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+    inF<-subsetMice[convertedDates>abs_start&convertedDates<abs_end,]
+    convertedDates<-convertedDates[convertedDates>abs_start&convertedDates<abs_end]
+    
+    bins<-seq(abs_start,abs_end,by=as.integer(input$binning))
     bin_no<-length(bins)
     
     bin_nos<-c(NULL)
     bin_starts<-c(NULL)
-    for(i in 1:length(inF)){
-      for(j in 1:length(convertedDates)){
+    for(i in 1:length(convertedDates)){
+     for(j in 1:length(bins)){
+       browser()
         # Check if at right bin
-        if(bins[j]<inF[,COL_NUM][i]<bins[j+1]){
-          bin_nos[i] <- j
-          bin_starts[i] <- bins[j]
+        if(!is.na(bins[j+1])){
+          if(bins[j]<convertedDates[i]&convertedDates[i]<bins[j+1]){
+            bin_nos[i] <- j
+            bin_starts[i] <- bins[j]
+          }
         }
+       else{
+         bin_nos[i] <- j
+         bin_starts[i] <- bins[j]
+       }
       }
       browser()
       cbind(inF,bin_starts,bin_nos)      
     }
     })
-    
-   #  
-
-    
-    
-    
+  
+#   output$subsettingTable <- DT::renderDataTable(
+#     subsetTable()[,drop=FALSE], filter = 'top', server = TRUE, 
+#       options = list(pageLength = 5, autoWidth = TRUE))
   
   
-  # Returns the added bin column
-  binReact<-reactive({
 
     
+  # Plot histrogram of times between headfixes 
+  # TODO: assumes all mice in same cage. Fix to make it work for a selection of mice from seperate cages
+  output$plotHist<-renderPlot({
+    input$goButton
+    if(input$goButton==0){
+      return()
+    }
+    isolate({
+      subsetTable()
+      hist()
+      
+      # Subset to get headfixes
+      subsetHeadfixes<-subsetTable()[subsetTable()[,ACTION_COL]==HEADFIX_STR]
+      
+      # Get the 
+      strptime(subsetHeadfixes[,DATE_COL],"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+      
+      # Fill list with times between subsequent headfixes
+      times_between<-c(NULL)
+      
+      for(a_row in subsetTable()){
+        if(a_row[ACTION_COL]==HEADFIX_STR){
+          
+        }
+      }
     
-    
-    
+     
+      
+      HEADFIX_STR
+      
+      #[timesbetweens, timesbetweens_cutoff] = hists_for_selected_mice('reward0', 'check+', 20, cfg.TAGS, 600)
+  
+    })
+  })
+  
+  output$plotLine<-renderPlot({
     
   })
   
-
-  
-theChosenDates<-reactive({
-  # Convert to dates dates
-  browser()
-  zoo(inFile()[,TIME_COL], structure(inFile()[,TIME_COL], class = c("POSIXt", "POSIXct")))
-  browser()
-})  
-  
-
-# Add column specifying the bin number a line belongs to    
-binnedDates<-reactive({
-    theChosenSeconds<- as.numeric(theChosenDates())
-    
-    # aggregate POSIXct seconds data every input$control_rate seconds
-    # http://stackoverflow.com/questions/5624140/binning-dates-in-r <== Thank you Dirk you are a God-genius of stack overflow and I worship your sexy manliness
-    tt <- seq(min(theChosenRows()[,TIME_COL]),max(theChosenRows()[,TIME_COL]), as.integer(input$control_rate))
-    x <- zoo(tt, structure(tt, class = c("POSIXt", "POSIXct")))
-    
-    browser()
-    
-    aggregate(x, time(x) - as.numeric(time(x)) %% 600, mean)
 })
   
+
   
-output$subsettingTable <- DT::renderDataTable(
-    inFile()[,drop=FALSE], filter = 'top', server = TRUE, 
-    options = list(pageLength = 5, autoWidth = TRUE))
-  
+# theChosenDates<-reactive({
+#   # Convert to dates dates
+#   browser()
+#   zoo(inFile()[,TIME_COL], structure(inFile()[,TIME_COL], class = c("POSIXt", "POSIXct")))
+#   browser()
+# })  
+#   
+# 
+# # Add column specifying the bin number a line belongs to    
+# binnedDates<-reactive({
+#     theChosenSeconds<- as.numeric(theChosenDates())
+#     
+#     # aggregate POSIXct seconds data every input$control_rate seconds
+#     # http://stackoverflow.com/questions/5624140/binning-dates-in-r <== Thank you Dirk you are a God-genius of stack overflow and I worship your sexy manliness
+#     tt <- seq(min(theChosenRows()[,TIME_COL]),max(theChosenRows()[,TIME_COL]), as.integer(input$control_rate))
+#     x <- zoo(tt, structure(tt, class = c("POSIXt", "POSIXct")))
+#     
+#     browser()
+#     
+#     aggregate(x, time(x) - as.numeric(time(x)) %% 600, mean)
+# })
+#   
+#   
 
   
 
-plotHist<-renderPlot({
-  #[timesbetweens, timesbetweens_cutoff] = hists_for_selected_mice('reward0', 'check+', 20, cfg.TAGS, 600)
-  binned_inFile<-binnedDates()
   
-  
-  
-})
 
-plotLine<-renderPlot({
-  
-})
+
 
 
 
@@ -229,4 +275,3 @@ plotLine<-renderPlot({
   
   
   
-})
