@@ -58,22 +58,23 @@ shinyServer(function(input, output, clientData, session) {
     bin_starts<-c(NULL)
     for(i in 1:length(convertedDates)){
      for(j in 1:length(bins)){
-       browser()
         # Check if at right bin
         if(!is.na(bins[j+1])){
-          if(bins[j]<convertedDates[i]&convertedDates[i]<bins[j+1]){
+          if(bins[j]<=convertedDates[i]&&convertedDates[i]<bins[j+1]){
             bin_nos[i] <- j
             bin_starts[i] <- bins[j]
+            break
           }
         }
        else{
+         stopifnot(bins[j]<=convertedDates[i])
          bin_nos[i] <- j
          bin_starts[i] <- bins[j]
        }
       }
-      browser()
-      cbind(inF,bin_starts,bin_nos)      
     }
+    browser()
+    cbind(inF,bin_starts,bin_nos) 
     })
   
 #   output$subsettingTable <- DT::renderDataTable(
