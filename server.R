@@ -51,30 +51,37 @@ shinyServer(function(input, output, clientData, session) {
     inF<-subsetMice[convertedDates>abs_start&convertedDates<abs_end,]
     convertedDates<-convertedDates[convertedDates>abs_start&convertedDates<abs_end]
     
-    bins<-seq(abs_start,abs_end,by=as.integer(input$binning))
-    bin_no<-length(bins)
+    #(convertedDates - absStart) %/% input$binning
     
-    bin_nos<-c(NULL)
-    bin_starts<-c(NULL)
-    for(i in 1:length(convertedDates)){
-     for(j in 1:length(bins)){
-        # Check if at right bin
-        if(!is.na(bins[j+1])){
-          if(bins[j]<=convertedDates[i]&&convertedDates[i]<bins[j+1]){
-            bin_nos[i] <- j
-            bin_starts[i] <- bins[j]
-            break
-          }
-        }
-       else{
-         stopifnot(bins[j]<=convertedDates[i])
-         bin_nos[i] <- j
-         bin_starts[i] <- bins[j]
-       }
-      }
-    }
-    browser()
-    cbind(inF,bin_starts,bin_nos) 
+    # Compute bins
+    bin_nos<-as.numeric(difftime(convertedDates, abs_start, units = "secs")) %/% as.numeric(input$binning)
+    bin_nos<-bin_nos+1
+    
+#     bins<-seq(abs_start,abs_end,by=as.integer(input$binning))
+#     bin_no<-length(bins)
+#     
+#     bin_nos<-c(NULL)
+#     bin_starts<-c(NULL)
+#     for(i in 1:length(convertedDates)){
+#       
+#      for(j in 1:length(bins)){
+#         # Check if at right bin
+#         if(!is.na(bins[j+1])){
+#           if(bins[j]<=convertedDates[i]&&convertedDates[i]<bins[j+1]){
+#             bin_nos[i] <- j
+#             bin_starts[i] <- bins[j]
+#             break
+#           }
+#         }
+#        else{
+#          stopifnot(bins[j]<=convertedDates[i])
+#          bin_nos[i] <- j
+#          bin_starts[i] <- bins[j]
+#        }
+#       }
+#     }
+    
+    cbind(inF,bin_nos) 
     })
   
 #   output$subsettingTable <- DT::renderDataTable(
@@ -92,30 +99,29 @@ shinyServer(function(input, output, clientData, session) {
       return()
     }
     isolate({
-      subsetTable()
-      hist()
+      subsetTable<-subsetTable()
+      #hist(subsetTable[,6])
       
+      browser()
       # Subset to get headfixes
-      subsetHeadfixes<-subsetTable()[subsetTable()[,ACTION_COL]==HEADFIX_STR]
+      subsetHeadfixes<-subsetTable[subsetTable[,ACTION_COL]==HEADFIX_STR,]
       
-      # Get the 
-      strptime(subsetHeadfixes[,DATE_COL],"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+      # Get the differences in time between each
+      subsetHeadfixes_times<-strptime(subsetHeadfixes[,DATE_COL],"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
       
       # Fill list with times between subsequent headfixes
       times_between<-c(NULL)
       
       for(a_row in subsetTable()){
         if(a_row[ACTION_COL]==HEADFIX_STR){
-          
         }
       }
     
-     
       
       HEADFIX_STR
       
       #[timesbetweens, timesbetweens_cutoff] = hists_for_selected_mice('reward0', 'check+', 20, cfg.TAGS, 600)
-  
+   
     })
   })
   
