@@ -100,9 +100,8 @@ shinyServer(function(input, output, clientData, session) {
     }
     isolate({
       subsetTable<-subsetTable()
-      #hist(subsetTable[,6])
+      # hist(subsetTable[,6])
       
-      browser()
       # Subset to get headfixes
       subsetHeadfixes<-subsetTable[subsetTable[,ACTION_COL]==HEADFIX_STR,]
       
@@ -111,17 +110,14 @@ shinyServer(function(input, output, clientData, session) {
       
       # Fill list with times between subsequent headfixes
       times_between<-c(NULL)
-      
-      for(a_row in subsetTable()){
-        if(a_row[ACTION_COL]==HEADFIX_STR){
+      for(i in 1:length(subsetHeadfixes_times)){
+        if(i < length(subsetHeadfixes_times)){
+          dif<-difftime(subsetHeadfixes_times[i+1],subsetHeadfixes_times[i],units="secs")
+          times_between = append(times_between,dif)
         }
-      }
-    
-      
-      HEADFIX_STR
-      
-      #[timesbetweens, timesbetweens_cutoff] = hists_for_selected_mice('reward0', 'check+', 20, cfg.TAGS, 600)
-   
+      } 
+      browser()
+      hist(times_between)
     })
   })
   
@@ -130,7 +126,8 @@ shinyServer(function(input, output, clientData, session) {
   })
   
 })
-  
+
+
 
   
 # theChosenDates<-reactive({
