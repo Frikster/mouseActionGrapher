@@ -43,6 +43,7 @@ shinyUI(fluidPage(
                  actionButton("setSubsetToURP", "Use filtered subset (not yet available. Instead download the subset you want, rename it to whatever you want and upload it and then go to the URP tab)")
         ),   
         tabPanel('Histrogram', 
+                 sliderInput("histBreaks", label = "Adjust break number", min = 2, max = 500, value = 10),
                  plotOutput("plotHist")),
         tabPanel('Line',
                  plotOutput("plotLine", inline = TRUE,width='auto',height='auto'))

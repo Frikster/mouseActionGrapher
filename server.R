@@ -117,13 +117,17 @@ shinyServer(function(input, output, clientData, session) {
         }
       } 
       browser()
-      hist(times_between)
+      hist(times_between,breaks=input$histBreaks)
     })
   })
   
   output$plotLine<-renderPlot({
     
   })
+  
+  output$subsettingTable <- DT::renderDataTable(
+    subsetTable(), filter = 'top', server = FALSE, 
+    options = list(pageLength = 5, autoWidth = TRUE))
   
 })
 
