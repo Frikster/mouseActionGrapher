@@ -1,10 +1,10 @@
 rm(list = ls())
 
 library(shiny)
-library(leaflet)
+#library(leaflet)
 library(DT)
-library(stringr)
-library(zoo)
+#library(stringr)
+#library(zoo)
 options(shiny.maxRequestSize=30*1024^2) 
 
 TAG_COL <- 1
