@@ -1,0 +1,20 @@
+"""Class holding all attributes related to pre-processing textFiles"""
+
+# Change working directory to where this module is before doing anything else
+import os, sys
+#os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
+
+import cfg
+import os
+import numpy as np
+from datetime import datetime
+import itertools
+import csv
+import copy
+
+def PreprocessTextfiles(absolute_start_time, absolute_end_time):
+	self.absolute_start_time = datetime.strptime(absolute_start_time, '%Y-%m-%d %H:%M:%S')
+	self.absolute_end_time = datetime.strptime(absolute_end_time, '%Y-%m-%d %H:%M:%S')
+ 
+            
+ 

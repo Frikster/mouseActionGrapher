@@ -1,10 +1,11 @@
 rm(list = ls())
 
 library(shiny)
-#library(leaflet)
 library(DT)
-#library(stringr)
-#library(zoo)
+library(rPython)
+library(rsconnect)
+library(RJSONIO)
+library(matlab)
 options(shiny.maxRequestSize=30*1024^2) 
 
 TAG_COL <- 1
@@ -12,14 +13,18 @@ TIME_COL <- 2
 DATE_COL <- 3
 ACTION_COL <- 4
 
-HEADFIX_STR <- 'reward0'
-
 shinyServer(function(input, output, clientData, session) {
   
   inFile<-reactive({
     input$file1
     if(is.null(input$file1)){
-      return(NULL)
+      if(input$preprocessButton==0){
+        return(NULL)
+      }
+      else{ 
+        python.load("Python-scripts/PreprocessTextfiles.py")
+        python.call("PreprocessTextfiles",input$abs_start,input$abs_end,input$DIR_WITH_TEXTFILES,input$FOLDERS_TO_IGNORE,input$OUTPUT_LOC)
+      }
     }
     else{
       inF<-read.csv(input$file1$datapath, header=input$header, sep=input$sep, quote=input$quote) 
@@ -34,6 +39,10 @@ shinyServer(function(input, output, clientData, session) {
                              choices = unique(inFile()[[TAG_COL]]))
       }
     })
+    
+    output$subsettingTable <- DT::renderDataTable(
+      subsetTable(), filter = 'top', server = FALSE, 
+      options = list(pageLength = 5, autoWidth = TRUE))
   
   # Subset between start and end with bin column and selected mice
   subsetTable<-reactive({
@@ -43,7 +52,7 @@ shinyServer(function(input, output, clientData, session) {
     abs_end <- strptime(input$abs_end,"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
     
     if(is.null(subsetMice)||nrow(subsetMice)<=0){
-      return()
+      return(NULL)
     }
     
     # subset between abs_start and abs_end 
@@ -51,46 +60,33 @@ shinyServer(function(input, output, clientData, session) {
     inF<-subsetMice[convertedDates>abs_start&convertedDates<abs_end,]
     convertedDates<-convertedDates[convertedDates>abs_start&convertedDates<abs_end]
     
-    #(convertedDates - absStart) %/% input$binning
-    
     # Compute bins
     bin_nos<-as.numeric(difftime(convertedDates, abs_start, units = "secs")) %/% as.numeric(input$binning)
     bin_nos<-bin_nos+1
-    
-#     bins<-seq(abs_start,abs_end,by=as.integer(input$binning))
-#     bin_no<-length(bins)
-#     
-#     bin_nos<-c(NULL)
-#     bin_starts<-c(NULL)
-#     for(i in 1:length(convertedDates)){
-#       
-#      for(j in 1:length(bins)){
-#         # Check if at right bin
-#         if(!is.na(bins[j+1])){
-#           if(bins[j]<=convertedDates[i]&&convertedDates[i]<bins[j+1]){
-#             bin_nos[i] <- j
-#             bin_starts[i] <- bins[j]
-#             break
-#           }
-#         }
-#        else{
-#          stopifnot(bins[j]<=convertedDates[i])
-#          bin_nos[i] <- j
-#          bin_starts[i] <- bins[j]
-#        }
-#       }
-#     }
-    
     cbind(inF,bin_nos) 
     })
   
-#   output$subsettingTable <- DT::renderDataTable(
-#     subsetTable()[,drop=FALSE], filter = 'top', server = TRUE, 
-#       options = list(pageLength = 5, autoWidth = TRUE))
+  # Set the subset for URP based on the subsetting tab
+  subsetToPlot<-reactive({
+    if(is.null(input$subsettingTable_rows_all)){
+      subsetTable()
+    }
+    else{
+      subsetTable()[input$subsettingTable_rows_all,]
+    }
+  })
   
+  observe({ 
+    if(!is.null(input$subsettingTable_rows_all)){
+      updateSelectizeInput(session, "firstAction",
+                           'Choose first action(s)',
+                           choices = levels(subsetToPlot()[[ACTION_COL]]))
+      updateSelectizeInput(session, "secondAction",
+                           'Choose second action(s)',
+                           choices = levels(subsetToPlot()[[ACTION_COL]]))
+    }
+  })
   
-
-    
   # Plot histrogram of times between headfixes 
   # TODO: assumes all mice in same cage. Fix to make it work for a selection of mice from seperate cages
   output$plotHist<-renderPlot({
@@ -99,37 +95,116 @@ shinyServer(function(input, output, clientData, session) {
       return()
     }
     isolate({
-      subsetTable<-subsetTable()
-      # hist(subsetTable[,6])
-      
-      # Subset to get headfixes
-      subsetHeadfixes<-subsetTable[subsetTable[,ACTION_COL]==HEADFIX_STR,]
+      subsetTable<-subsetToPlot()
+      # Subset to get only rows with
+      subsetTable<-subsetTable[subsetTable[,ACTION_COL]==input$firstAction|subsetTable[,ACTION_COL]==input$secondAction,]
       
       # Get the differences in time between each
-      subsetHeadfixes_times<-strptime(subsetHeadfixes[,DATE_COL],"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+      subsetTable_times<-strptime(subsetTable[,DATE_COL],"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
       
       # Fill list with times between subsequent headfixes
       times_between<-c(NULL)
-      for(i in 1:length(subsetHeadfixes_times)){
-        if(i < length(subsetHeadfixes_times)){
-          dif<-difftime(subsetHeadfixes_times[i+1],subsetHeadfixes_times[i],units="secs")
-          times_between = append(times_between,dif)
+      for(i in 1:length(subsetTable_times)){
+        if(i < length(subsetTable_times)){
+          dif<-difftime(subsetTable_times[i+1],subsetTable_times[i],units="secs")
+          if(dif < as.integer(input$cutOff) && subsetTable[i,ACTION_COL]==input$firstAction && subsetTable[i+1,ACTION_COL]==input$secondAction){
+           times_between = append(times_between,dif)
+          }
         }
       } 
-      browser()
       hist(times_between,breaks=input$histBreaks)
     })
   })
   
-  output$plotLine<-renderPlot({
+  ####
+  # TODO
+  # add a column that says how much time there is between it and action one/two
+  
+  output$plotHistData <- renderDataTable({
+    input$goButton
+    if(input$goButton==0){
+      return()
+    }
+    isolate({
+    subsetTable<-subsetToPlot()
+    # Subset to get only rows with
+    subsetTable<-subsetTable[subsetTable[,ACTION_COL]==input$firstAction|subsetTable[,ACTION_COL]==input$secondAction,]
     
+    # Get the differences in time between each
+    subsetTable_times<-strptime(subsetTable[,DATE_COL],"%Y-%m-%d %H:%M:%S",tz='US/Pacific')
+    
+    # Fill list with times between subsequent headfixes
+    times_between<-c(NULL)
+    for(i in 1:length(subsetTable_times)){
+      if(i < length(subsetTable_times)){
+        dif<-difftime(subsetTable_times[i+1],subsetTable_times[i],units="secs")
+        if(dif < as.integer(input$cutOff) && subsetTable[i,ACTION_COL]==input$firstAction && subsetTable[i+1,ACTION_COL]==input$secondAction){
+          times_between = append(times_between,dif)
+        }
+      }
+    } 
+    as.data.frame(times_between)
+    })
   })
   
-  output$subsettingTable <- DT::renderDataTable(
-    subsetTable(), filter = 'top', server = FALSE, 
+  output$histTable <- DT::renderDataTable(
+    subsetToPlot(), filter = 'top', server = FALSE, 
     options = list(pageLength = 5, autoWidth = TRUE))
   
+  
+  ###
+  
+  # plot the count of an action within bins for selected mice
+  output$plotLine<-renderPlot({
+    input$goButton
+    if(input$goButton[1]==0){
+      return(NULL)
+    }
+    isolate({
+      # Fetch only the data that has been subsetted on in the subsetting tab
+      subsetTable<-subsetToPlot()
+      # Count number of items in each bin and display
+      plot(table(subsetTable$bin_nos))
+    })
+  })
+  
+  output$plotLineData <- renderDataTable({
+    subsetTable<-subsetToPlot()
+    as.data.frame(table(subsetTable$bin_nos))
+  })
+  
+  output$lineTable <- DT::renderDataTable(
+    subsetToPlot(), filter = 'top', server = FALSE, 
+    options = list(pageLength = 5, autoWidth = TRUE))
+  
+  output$plotSDMap<-renderPlot({
+    input$plotSDMapButton
+    if(input$plotSDMapButton==0){
+      return()
+    }
+    isolate({
+      python.load("Python-scripts/TestScript.py")
+      firstFrame_raw<-python.call("get_frames",input$rawVid,256,256)
+      firstFrame_processed<-zeros(length(firstFrame_raw[[1]]),length(firstFrame_raw[[1]][[1]]),length(firstFrame_raw))
+      for(mRow in 1:length(firstFrame_raw[[1]])){
+        for(mSlice in 1:length(firstFrame_raw)){
+          firstFrame_processed[mRow,,mSlice]<-firstFrame_raw[[mSlice]][[mRow]]
+        }
+      }
+      
+      imagesc(firstFrame_processed[,,1])
+    })
+  })
+  
+  
 })
+
+
+
+
+
+
+
 
 
 
@@ -159,45 +234,6 @@ shinyServer(function(input, output, clientData, session) {
 #   
 
   
-
-  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #   observe({ 
 #     if(!is.null(inFile)){
 #       updateSelectizeInput(session, "tagChooser",
