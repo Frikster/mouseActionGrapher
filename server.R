@@ -6,12 +6,14 @@ library(rPython)
 library(rsconnect)
 library(RJSONIO)
 library(matlab)
+library(reshape)
 options(shiny.maxRequestSize=30*1024^2) 
 
 TAG_COL <- 1
 TIME_COL <- 2
 DATE_COL <- 3
 ACTION_COL <- 4
+TEXT_LOC_COL <- 5
 
 shinyServer(function(input, output, clientData, session) {
   
@@ -43,7 +45,7 @@ shinyServer(function(input, output, clientData, session) {
     output$subsettingTable <- DT::renderDataTable(
       subsetTable(), filter = 'top', server = FALSE, 
       options = list(pageLength = 5, autoWidth = TRUE))
-  
+    
   # Subset between start and end with bin column and selected mice
   subsetTable<-reactive({
     subsetMice<-inFile()[inFile()[,TAG_COL]%in%input$tagChooser,]
@@ -87,6 +89,11 @@ shinyServer(function(input, output, clientData, session) {
     }
   })
   
+  # download the filtered data
+  output$downloadSubset = downloadHandler('filtered.csv', content = function(file) {
+    write.csv(subsetToPlot(), file)
+  })
+  
   # Plot histrogram of times between headfixes 
   # TODO: assumes all mice in same cage. Fix to make it work for a selection of mice from seperate cages
   output$plotHist<-renderPlot({
@@ -116,18 +123,14 @@ shinyServer(function(input, output, clientData, session) {
     })
   })
   
-  ####
-  # TODO
-  # add a column that says how much time there is between it and action one/two
-  
-  output$plotHistData <- renderDataTable({
+  plotHistData <- reactive({
     input$goButton
     if(input$goButton==0){
       return()
     }
     isolate({
     subsetTable<-subsetToPlot()
-    # Subset to get only rows with
+    # Subset to get only rows with one of the two actions
     subsetTable<-subsetTable[subsetTable[,ACTION_COL]==input$firstAction|subsetTable[,ACTION_COL]==input$secondAction,]
     
     # Get the differences in time between each
@@ -135,24 +138,42 @@ shinyServer(function(input, output, clientData, session) {
     
     # Fill list with times between subsequent headfixes
     times_between<-c(NULL)
+    # Fill these lists with the tags, dates and textfile locs corresponding to action1 
+    tags<-c(NULL)
+    dates<-c(NULL)
+    textFile_locs<-c(NULL)
     for(i in 1:length(subsetTable_times)){
       if(i < length(subsetTable_times)){
         dif<-difftime(subsetTable_times[i+1],subsetTable_times[i],units="secs")
-        if(dif < as.integer(input$cutOff) && subsetTable[i,ACTION_COL]==input$firstAction && subsetTable[i+1,ACTION_COL]==input$secondAction){
-          times_between = append(times_between,dif)
+        # Only add if we are below the cutOff, where the first action is before the second and where both actions are performed by the same mouse
+        # NOTE and TODO: a limitation here is that only i and i+1 are checked. will need to make a O(N^2) loop to get them all that you'll need to speed up
+        if(dif < as.integer(input$cutOff) && subsetTable[i,ACTION_COL]==input$firstAction && subsetTable[i+1,ACTION_COL]==input$secondAction && subsetTable[i,TAG_COL]==subsetTable[i+1,TAG_COL]){
+          tag_col<-subsetTable[i,TAG_COL]
+          date_col<-subsetTable[i,DATE_COL]
+          text_loc_col<-subsetTable[i,TEXT_LOC_COL]
+          # Drop levels from any factors
+          if(class(tag_col)=='factor'){tag_col<-levels(droplevels(tag_col))}
+          if(class(date_col)=='factor'){date_col<-levels(droplevels(date_col))}
+          if(class(text_loc_col)=='factor'){text_loc_col<-levels(droplevels(text_loc_col))}
+          times_between <- append(times_between,dif)
+          tags<-append(tags,tag_col)
+          dates<-append(dates,date_col)
+          textFile_locs<-append(textFile_locs,text_loc_col)
         }
       }
     } 
-    as.data.frame(times_between)
+    as.data.frame(cbind(times_between,tags,dates,textFile_locs))
     })
   })
   
   output$histTable <- DT::renderDataTable(
-    subsetToPlot(), filter = 'top', server = FALSE, 
+    plotHistData(), filter = 'top', server = FALSE, 
     options = list(pageLength = 5, autoWidth = TRUE))
   
-  
-  ###
+  # download the filtered data
+  output$downloadHistTable = downloadHandler('HistTable.csv', content = function(file) {
+    write.csv(plotHistData(), file)
+  })
   
   # plot the count of an action within bins for selected mice
   output$plotLine<-renderPlot({
@@ -168,14 +189,24 @@ shinyServer(function(input, output, clientData, session) {
     })
   })
   
-  output$plotLineData <- renderDataTable({
+  output$plotLineTable <- DT::renderDataTable(
+    rename(as.data.frame(table(subsetToPlot()$bin_nos)),c("Var1"="Bin")), filter = 'top', server = FALSE, 
+    options = list(pageLength = 5, autoWidth = TRUE))
+  
+  # download the filtered data
+  output$downloadPlotLineTable = downloadHandler('LinePlotTable.csv', content = function(file) {
     subsetTable<-subsetToPlot()
-    as.data.frame(table(subsetTable$bin_nos))
+    write.csv(as.data.frame(table(subsetTable$bin_nos)), file)
   })
   
   output$lineTable <- DT::renderDataTable(
     subsetToPlot(), filter = 'top', server = FALSE, 
     options = list(pageLength = 5, autoWidth = TRUE))
+  
+  # download the filtered data
+  output$downloadLineTable = downloadHandler('LineTable.csv', content = function(file) {
+    write.csv(subsetToPlot(), file)
+  })
   
   output$plotSDMap<-renderPlot({
     input$plotSDMapButton
@@ -184,19 +215,58 @@ shinyServer(function(input, output, clientData, session) {
     }
     isolate({
       python.load("Python-scripts/TestScript.py")
-      firstFrame_raw<-python.call("get_frames",input$rawVid,256,256)
-      firstFrame_processed<-zeros(length(firstFrame_raw[[1]]),length(firstFrame_raw[[1]][[1]]),length(firstFrame_raw))
-      for(mRow in 1:length(firstFrame_raw[[1]])){
-        for(mSlice in 1:length(firstFrame_raw)){
-          firstFrame_processed[mRow,,mSlice]<-firstFrame_raw[[mSlice]][[mRow]]
+      print("Fetching frames")
+      start.time<-Sys.time()
+      frames_raw<-python.call("get_frames",input$rawVid,256,256)
+      end.time<-Sys.time()
+      time.taken.get_frames <- end.time - start.time
+      print(time.taken.get_frames)
+      print("Computing standard deviation map")
+      start.time<-Sys.time()
+      frames_raw<-python.call("standard_deviation",frames_raw)
+      end.time<-Sys.time()
+      time.taken.standard_deviation <- end.time - start.time
+      print(time.taken.standard_deviation)
+      
+      frame_processed<-zeros(length(frames_raw),length(frames_raw[[1]]))
+      for(mCol in 1:length(frames_raw[[1]])){
+        for(mRow in 1:length(frames_raw)){
+          frame_processed[mRow,mCol]<-frames_raw[[mRow]][mCol]
         }
       }
-      
-      imagesc(firstFrame_processed[,,1])
+      imagesc(frame_processed)
     })
   })
   
-  
+  output$plotAVGMap<-renderPlot({
+    input$plotSDMapButton
+    if(input$plotSDMapButton==0){
+      return()
+    }
+    isolate({
+      python.load("Python-scripts/TestScript.py")
+      print("Fetching frames")
+      start.time<-Sys.time()
+      frames_raw<-python.call("get_frames",input$rawVid,256,256)
+      end.time<-Sys.time()
+      time.taken.get_frames <- end.time - start.time
+      print(time.taken.get_frames)
+      print("Computing mean map")
+      start.time<-Sys.time()
+      frames_raw<-python.call("calculate_avg",frames_raw)
+      end.time<-Sys.time()
+      time.taken.calculate_avg <- end.time - start.time
+      print(time.taken.calculate_avg)
+      
+      frame_processed<-zeros(length(frames_raw),length(frames_raw[[1]]))
+      for(mCol in 1:length(frames_raw[[1]])){
+        for(mRow in 1:length(frames_raw)){
+          frame_processed[mRow,mCol]<-frames_raw[[mRow]][mCol]
+        }
+      }
+      imagesc(frame_processed)
+    })
+  })
 })
 
 

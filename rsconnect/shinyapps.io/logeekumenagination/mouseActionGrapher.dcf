@@ -2,8 +2,8 @@ name: mouseActionGrapher
 account: logeekumenagination
 server: shinyapps.io
 appId: 62756
-bundleId: 279399
+bundleId: 286581
 url: https://logeekumenagination.shinyapps.io/mouseActionGrapher
-when: 1443769965.38609
+when: 1444705746.00094
 asMultiple: FALSE
 asStatic: FALSE

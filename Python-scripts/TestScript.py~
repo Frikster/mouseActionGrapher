@@ -31,7 +31,6 @@ starting_frame = 100
 def get_frames(rgb_file,width,height):
     frame_size = width * height * 3
     with open(rgb_file, "rb") as file:
-	print("rgb file opened!")
 	frames =   rgb_file      
 	#frames = np.fromfile(file, dtype=np.uint8)
         #total_number_of_frames = int(np.size(frames)/frame_size)
